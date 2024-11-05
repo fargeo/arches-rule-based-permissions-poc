@@ -19,8 +19,10 @@ from django.contrib.auth.models import User
 from arches.app.permissions.arches_default_deny import (
     ArchesDefaultDenyPermissionFramework,
 )
+from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, Terms
 from arches.app.search.search import SearchEngine
 import rule_based_perms.permissions.rules as rules
+
 
 class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
 
@@ -32,5 +34,9 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
         resources: list[str] | None = None,
     ):
         resources = rules.permission_handler(user)
-        print(len(resources))
-        return self.__class__.is_exclusive, resources.values_list("resourceinstanceid", flat=True)
+        return self.__class__.is_exclusive, resources.values_list(
+            "resourceinstanceid", flat=True
+        )
+
+    def get_permission_search_filter(self, user: User) -> Bool:
+        return rules.permission_handler(user, filter="search")
