@@ -25,6 +25,8 @@ import rule_based_perms.permissions.rules as rules
 
 
 class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
+    def __init__(self):
+        self.rules = rules.PermissionRules()
 
     def get_filtered_instances(
         self,
@@ -33,10 +35,20 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
         allresources: bool = False,
         resources: list[str] | None = None,
     ):
-        resources = rules.permission_handler(user)
+        resources = self.rules.permission_handler(user)
         return self.__class__.is_exclusive, resources.values_list(
             "resourceinstanceid", flat=True
         )
 
     def get_permission_search_filter(self, user: User) -> Bool:
-        return rules.permission_handler(user, filter="search")
+        rule_access = self.rules.permission_handler(user, filter="search")
+        if rule_access:
+            return rule_access
+        else:
+            has_access = Bool()
+            should_access = Bool()
+            principal_user = Terms(field="permissions.principal_user", terms=[str(user.id)])
+            principal_user_term_filter = Nested(path="permissions", query=principal_user)
+            should_access.should(principal_user_term_filter)
+            has_access.filter(should_access)
+            return has_access
