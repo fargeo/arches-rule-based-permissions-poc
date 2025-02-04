@@ -14,7 +14,7 @@ class PermissionRules():
     def __init__(self):
         self.configs = RuleConfig.objects.all()
 
-    def filter_tile_has_value(self, nodegroupid, nodeid, value, filter="db", qs=None):
+    def filter_tile_has_value(self, nodegroupid, nodeid, value, user, filter="db", qs=None):
         if filter == "db":
             nodegroups = [nodegroupid]
             tiles = (
@@ -27,8 +27,7 @@ class PermissionRules():
                 )
                 .filter(Q(node=value))
             )
-            # return models.ResourceInstance.objects.filter(Exists(tiles))
-            return models.ResourceInstance.objects.all()
+            return models.ResourceInstance.objects.filter(Q(Exists(tiles)) | Q(principaluser_id=user.id))
         else:
             documents = Bool()
             string_factory = DataTypeFactory().get_instance("concept")
@@ -103,7 +102,7 @@ class PermissionRules():
             for perm in self.configs:
                 if (perm.groups.all() & user_groups.all()).exists() and set(perm.actions).intersection(actions):
                     res = filters[perm.type](
-                        perm.nodegroup_id, perm.node_id, perm.value["value"], filter
+                        perm.nodegroup_id, perm.node_id, perm.value["value"], user, filter
                     )
 
         return res
