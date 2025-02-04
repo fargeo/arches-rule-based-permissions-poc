@@ -42,13 +42,10 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
 
     def get_permission_search_filter(self, user: User) -> Bool:
         rule_access = self.rules.permission_handler(user, filter="search")
+        principal_user = Terms(field="permissions.principal_user", terms=[str(user.id)])
+        principal_user_term_filter = Nested(path="permissions", query=principal_user)
+        has_access = Bool()
+        has_access.should(principal_user_term_filter)
         if rule_access:
-            return rule_access
-        else:
-            has_access = Bool()
-            should_access = Bool()
-            principal_user = Terms(field="permissions.principal_user", terms=[str(user.id)])
-            principal_user_term_filter = Nested(path="permissions", query=principal_user)
-            should_access.should(principal_user_term_filter)
-            has_access.filter(should_access)
-            return has_access
+            has_access.should(rule_access)
+        return has_access
