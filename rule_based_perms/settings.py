@@ -14,7 +14,6 @@ except ImportError:
     pass
 
 APP_NAME = 'rule_based_perms'
-APP_VERSION = semantic_version.Version(major=0, minor=0, patch=0)
 APP_ROOT = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
 WEBPACK_LOADER = {
@@ -29,6 +28,7 @@ ETL_MODULE_LOCATIONS.append('rule_based_perms.etl_modules')
 SEARCH_COMPONENT_LOCATIONS.append('rule_based_perms.search_components')
 
 PERMISSION_FRAMEWORK = "arches_filtered_permissions.ArchesFilteredPermissionFramework"
+# PERMISSION_FRAMEWORK = "arches_default_deny.ArchesDefaultDenyPermissionFramework"
 
 LOCALE_PATHS.insert(0, os.path.join(APP_ROOT, 'locale'))
 
