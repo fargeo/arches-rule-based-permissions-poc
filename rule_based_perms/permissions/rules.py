@@ -80,17 +80,22 @@ class PermissionRules():
         unique_user_groups = set()
         for config in self.configs:
             groups = config.groups.all().values_list("name", flat=True)
-            print(list(groups))
             unique_user_groups.update(list(groups))
 
         user_groups = user.groups.filter(name__in=unique_user_groups)
         res = None
 
         if len(user_groups):
+            queries = []
             for perm in self.configs:
                 if (perm.groups.all() & user_groups.all()).exists() and set(perm.actions).intersection(actions):
                     res = filters[perm.type](
                         perm.nodegroup_id, perm.node_id, perm.value["value"], user, filter
                     )
+                    if filter == "db":
+                        queries.append(res)
 
-        return res
+        if filter == "db":
+            return queries[0].union(*queries[1:]) if len(queries) > 1 else queries[0]
+        else:
+            return res
