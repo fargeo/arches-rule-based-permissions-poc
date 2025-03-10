@@ -106,6 +106,8 @@ class PermissionRules:
                         queries.append(res)
                     else:
                         final_query.should(res)
+        else:
+            return models.ResourceInstance.objects.none()
 
         if filter == "db":
             return queries[0].union(*queries[1:]) if len(queries) > 1 else queries[0]
