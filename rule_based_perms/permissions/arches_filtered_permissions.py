@@ -35,6 +35,8 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
         allresources: bool = False,
         resources: list[str] | None = None,
     ):
+        if user.is_superuser:
+            return True, resources
         resources = self.rules.permission_handler(user)
         return self.__class__.is_exclusive, resources.values_list(
             "resourceinstanceid", flat=True
