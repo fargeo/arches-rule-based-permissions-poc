@@ -20,7 +20,14 @@ from arches.app.permissions.arches_default_deny import (
     ArchesDefaultDenyPermissionFramework,
 )
 from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, Terms
+from django.contrib.gis.db.models import Model
 from arches.app.search.search import SearchEngine
+from arches.app.models.models import NodeGroup
+from guardian.backends import check_support
+from guardian.exceptions import WrongAppError
+from arches.app.permissions.arches_permission_base import (ObjectPermissionChecker,
+                                                           CachedObjectPermissionChecker,
+                                                           CachedUserPermissionChecker)
 import rule_based_perms.permissions.rules as rules
 
 
@@ -49,3 +56,43 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
         if rule_access:
             has_access.should(rule_access)
         return has_access
+
+    def has_perm(self, user_obj: User, perm: str, obj: Model | None = None) -> bool:
+        if isinstance(obj, NodeGroup):
+            # check if user_obj and object are supported (pulled directly from guardian)
+            support, user_obj = check_support(user_obj, obj)
+            if not support:
+                return False
+
+            if "." in perm:
+                app_label, perm = perm.split(".")
+                if app_label != obj._meta.app_label:
+                    raise WrongAppError(
+                        "Passed perm has app label of '%s' and "
+                        "given obj has '%s'" % (app_label, obj._meta.app_label)
+                    )
+
+            if user_obj.is_superuser:
+                return True
+
+            obj_checker: ObjectPermissionChecker = CachedObjectPermissionChecker(
+                user_obj, obj
+            )
+            explicitly_defined_perms = obj_checker.get_perms(obj)
+
+            if len(explicitly_defined_perms) > 0:
+                if "no_access_to_nodegroup" in explicitly_defined_perms:
+                    return False
+                else:
+                    return perm in explicitly_defined_perms
+            else:
+                user_checker = CachedUserPermissionChecker(user_obj)
+                return user_checker.user_has_permission(perm)
+            
+        else:
+            if user_obj.is_superuser:
+                return True
+            resources = self.rules.permission_handler(user_obj, filter="db", actions=[perm])
+            print('checking', resources, perm)
+            return resources.filter(resourceinstanceid=obj.resourceinstanceid).exists()
+        # return super().has_perm(user_obj, perm, obj)
