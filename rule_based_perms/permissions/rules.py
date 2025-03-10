@@ -9,8 +9,7 @@ from rule_based_perms.models import RuleConfig
 from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, Terms
 
 
-class PermissionRules():
-
+class PermissionRules:
     """
     Leave as example of concept rule config and perm definitions
     {
@@ -38,12 +37,14 @@ class PermissionRules():
             'return_ohp_resources_without_confidential': ['read', 'write', 'delete'],
         },
     }
-    """   
+    """
 
     def __init__(self):
         self.configs = RuleConfig.objects.all()
 
-    def filter_tile_has_value(self, nodegroupid, nodeid, value, user, filter="db", qs=None):
+    def filter_tile_has_value(
+        self, nodegroupid, nodeid, value, user, filter="db", qs=None
+    ):
         if filter == "db":
             nodegroups = [nodegroupid]
             tiles = (
@@ -56,7 +57,9 @@ class PermissionRules():
                 )
                 .filter(Q(node=value))
             )
-            return models.ResourceInstance.objects.filter(Q(Exists(tiles)) | Q(principaluser_id=user.id))
+            return models.ResourceInstance.objects.filter(
+                Q(Exists(tiles)) | Q(principaluser_id=user.id)
+            )
         else:
             documents = Bool()
             string_factory = DataTypeFactory().get_instance("concept")
@@ -70,7 +73,7 @@ class PermissionRules():
 
     def filter_tile_does_not_have_value(self, filter="db", actions=[], qs=None):
         pass
- 
+
     def permission_handler(self, user, actions=["read"], filter="db"):
         print("permission_handler")
         filters = {
@@ -78,8 +81,8 @@ class PermissionRules():
             "filter_tile_does_not_have_value": self.filter_tile_does_not_have_value,
         }
         unique_user_groups = set()
-        for config in self.configs:
-            groups = config.groups.all().values_list("name", flat=True)
+        for rule_config in self.configs:
+            groups = rule_config.groups.all().values_list("name", flat=True)
             unique_user_groups.update(list(groups))
 
         user_groups = user.groups.filter(name__in=unique_user_groups)
@@ -87,15 +90,24 @@ class PermissionRules():
 
         if len(user_groups):
             queries = []
-            for perm in self.configs:
-                if (perm.groups.all() & user_groups.all()).exists() and set(perm.actions).intersection(actions):
-                    res = filters[perm.type](
-                        perm.nodegroup_id, perm.node_id, perm.value["value"], user, filter
+            final_query = Bool()
+            for rule_config in self.configs:
+                if (rule_config.groups.all() & user_groups.all()).exists() and set(
+                    rule_config.actions
+                ).intersection(actions):
+                    res = filters[rule_config.type](
+                        rule_config.nodegroup_id,
+                        rule_config.node_id,
+                        rule_config.value["value"],
+                        user,
+                        filter,
                     )
                     if filter == "db":
                         queries.append(res)
+                    else:
+                        final_query.should(res)
 
         if filter == "db":
             return queries[0].union(*queries[1:]) if len(queries) > 1 else queries[0]
         else:
-            return res
+            return final_query
