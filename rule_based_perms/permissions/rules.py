@@ -10,34 +10,7 @@ from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, Terms
 
 
 class PermissionRules:
-    """
-    Leave as example of concept rule config and perm definitions
-    {
-        "type": "filter_tile_has_value",
-        "nodeid": "3faca866-29c7-11ef-ad5f-faffc210b420",
-        "nodegroupid": "5b11ec40-1d2b-11ef-bfd8-faffc210b420",
-        "value": "14a04982-f28c-406b-94ce-2d889769c421",
-        "groups": ["Resource Reviewer"],
-        "actions": ["read"],
-        "name": "Allow access to resources with EIC value",
-    },
 
-    perms = {
-        'elite_group': {
-            'return_confidential_resources': ['read'],
-        }
-        'ohp_group': {
-            'return_ohp_resources': ['read', 'write', 'delete'],
-        },
-        'ndic': {
-            'return_ndic_resources': ['read', 'write', 'delete'],
-            'return_ohp_resources': ['read']
-        },
-        'ohp_intern_group': {
-            'return_ohp_resources_without_confidential': ['read', 'write', 'delete'],
-        },
-    }
-    """
 
     def __init__(self):
         self.configs = RuleConfig.objects.all()
