@@ -54,11 +54,6 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
         self, user_or_group: User | Group, obj: ResourceInstance
     ) -> list[str]:
 
-        perm_lookup = {
-            "read": "view_resourceinstance",
-            "edit": "change_resourceinstance",
-            "delete": "delete_resourceinstance",
-            }
 
         filters = {
             "filter_tile_has_value": self.rules.filter_tile_has_value,
@@ -79,5 +74,5 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
                     if resources.filter(resourceinstanceid=obj.pk).exists():
                         actions.update(rule_config.actions)
 
-        return [perm_lookup[action] for action in list(actions)]
+        return list(actions)
     
