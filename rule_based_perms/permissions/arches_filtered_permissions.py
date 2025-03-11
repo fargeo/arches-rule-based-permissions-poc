@@ -24,6 +24,7 @@ from arches.app.models.models import ResourceInstance
 from arches.app.search.search import SearchEngine
 import rule_based_perms.permissions.rules as rules
 
+
 class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
     def __init__(self):
         self.rules = rules.PermissionRules()
@@ -53,7 +54,6 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
     def get_perms(
         self, user_or_group: User | Group, obj: ResourceInstance
     ) -> list[str]:
-
 
         filters = {
             "filter_tile_has_value": self.rules.filter_tile_has_value,

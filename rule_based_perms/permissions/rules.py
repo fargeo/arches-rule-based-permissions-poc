@@ -47,7 +47,7 @@ class PermissionRules:
     def filter_tile_does_not_have_value(self, filter="db", actions=[], qs=None):
         pass
 
-    def get_config_groups(self, user): 
+    def get_config_groups(self, user: User) -> QuerySet[Group]: 
         unique_user_groups = set()
         for rule_config in self.configs:
             groups = rule_config.groups.all().values_list("name", flat=True)
