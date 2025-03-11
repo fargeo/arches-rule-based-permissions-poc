@@ -15,21 +15,14 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from arches.app.permissions.arches_default_deny import (
     ArchesDefaultDenyPermissionFramework,
 )
 from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, Terms
-from django.contrib.gis.db.models import Model
+from arches.app.models.models import ResourceInstance
 from arches.app.search.search import SearchEngine
-from arches.app.models.models import NodeGroup
-from guardian.backends import check_support
-from guardian.exceptions import WrongAppError
-from arches.app.permissions.arches_permission_base import (ObjectPermissionChecker,
-                                                           CachedObjectPermissionChecker,
-                                                           CachedUserPermissionChecker)
 import rule_based_perms.permissions.rules as rules
-
 
 class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
     def __init__(self):
@@ -57,42 +50,34 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
             has_access.should(rule_access)
         return has_access
 
-    def has_perm(self, user_obj: User, perm: str, obj: Model | None = None) -> bool:
-        if isinstance(obj, NodeGroup):
-            # check if user_obj and object are supported (pulled directly from guardian)
-            support, user_obj = check_support(user_obj, obj)
-            if not support:
-                return False
+    def get_perms(
+        self, user_or_group: User | Group, obj: ResourceInstance
+    ) -> list[str]:
 
-            if "." in perm:
-                app_label, perm = perm.split(".")
-                if app_label != obj._meta.app_label:
-                    raise WrongAppError(
-                        "Passed perm has app label of '%s' and "
-                        "given obj has '%s'" % (app_label, obj._meta.app_label)
+        perm_lookup = {
+            "read": "view_resourceinstance",
+            "edit": "change_resourceinstance",
+            "delete": "delete_resourceinstance",
+            }
+
+        filters = {
+            "filter_tile_has_value": self.rules.filter_tile_has_value,
+            "filter_tile_does_not_have_value": self.rules.filter_tile_does_not_have_value,
+        }
+        user_groups = self.rules.get_config_groups(user_or_group)
+        actions = set()
+        if len(user_groups):
+            for rule_config in self.rules.configs:
+                if (rule_config.groups.all() & user_groups.all()).exists():
+                    resources = filters[rule_config.type](
+                        rule_config.nodegroup_id,
+                        rule_config.node_id,
+                        rule_config.value["value"],
+                        user_or_group,
+                        "db",
                     )
+                    if resources.filter(resourceinstanceid=obj.pk).exists():
+                        actions.update(rule_config.actions)
 
-            if user_obj.is_superuser:
-                return True
-
-            obj_checker: ObjectPermissionChecker = CachedObjectPermissionChecker(
-                user_obj, obj
-            )
-            explicitly_defined_perms = obj_checker.get_perms(obj)
-
-            if len(explicitly_defined_perms) > 0:
-                if "no_access_to_nodegroup" in explicitly_defined_perms:
-                    return False
-                else:
-                    return perm in explicitly_defined_perms
-            else:
-                user_checker = CachedUserPermissionChecker(user_obj)
-                return user_checker.user_has_permission(perm)
-            
-        else:
-            if user_obj.is_superuser:
-                return True
-            resources = self.rules.permission_handler(user_obj, filter="db", actions=[perm])
-            print('checking', resources, perm)
-            return resources.filter(resourceinstanceid=obj.resourceinstanceid).exists()
-        # return super().has_perm(user_obj, perm, obj)
+        return [perm_lookup[action] for action in list(actions)]
+    
