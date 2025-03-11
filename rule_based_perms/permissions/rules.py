@@ -11,7 +11,6 @@ from rule_based_perms.models import RuleConfig
 
 class PermissionRules:
 
-
     def __init__(self):
         self.configs = RuleConfig.objects.all()
 
