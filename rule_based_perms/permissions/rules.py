@@ -83,7 +83,7 @@ class PermissionRules:
         return user.groups.filter(name__in=unique_user_groups)
 
     def permission_handler(self, user, actions=["view_resourceinstance"], filter="db"):
-        print("permission_handler")
+
         filters = {
             "filter_tile_has_value": self.filter_tile_has_value,
             "filter_tile_does_not_have_value": self.filter_tile_does_not_have_value,
