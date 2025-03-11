@@ -74,18 +74,22 @@ class PermissionRules:
     def filter_tile_does_not_have_value(self, filter="db", actions=[], qs=None):
         pass
 
+    def get_config_groups(self, user): 
+        unique_user_groups = set()
+        for rule_config in self.configs:
+            groups = rule_config.groups.all().values_list("name", flat=True)
+            unique_user_groups.update(list(groups))
+
+        return user.groups.filter(name__in=unique_user_groups)
+
     def permission_handler(self, user, actions=["read"], filter="db"):
         print("permission_handler")
         filters = {
             "filter_tile_has_value": self.filter_tile_has_value,
             "filter_tile_does_not_have_value": self.filter_tile_does_not_have_value,
         }
-        unique_user_groups = set()
-        for rule_config in self.configs:
-            groups = rule_config.groups.all().values_list("name", flat=True)
-            unique_user_groups.update(list(groups))
 
-        user_groups = user.groups.filter(name__in=unique_user_groups)
+        user_groups = self.get_config_groups(user)
         res = None
 
         if len(user_groups):
