@@ -1,12 +1,12 @@
-from django.http import HttpRequest
 from arches.app.datatypes.datatypes import DataTypeFactory
 from arches.app.models import models
+from arches.app.search.elasticsearch_dsl_builder import Bool, Nested
+from django.contrib.auth.models import User, Group
+from django.db.models import Exists, OuterRef, Q
 from django.db.models.fields.json import KT
-from django.db.models import Q
-from django.db.models import Exists, OuterRef
+from django.db.models.query import QuerySet
+from django.http import HttpRequest
 from rule_based_perms.models import RuleConfig
-
-from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, Terms
 
 
 class PermissionRules:
