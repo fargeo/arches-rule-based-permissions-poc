@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class RuleConfig(models.Model):
 
     def actions_default(): # default must be a callable for JSONField
-        return ["read"]
+        return ["view_resourceinstance"]
 
     id = models.UUIDField(primary_key=True)
     type = models.CharField(max_length=200)
