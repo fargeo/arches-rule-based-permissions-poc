@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('rule_based_perms', '0001_initial'),
+        ("rule_based_perms", "0001_initial"),
     ]
 
     def add_rule_config(apps, schema_editor):
@@ -31,16 +31,49 @@ class Migration(migrations.Migration):
             type="filter_resource_has_lifecycle_state",
             node_id=uuid.UUID("8f3f9562-9dc5-11ed-a2fb-0242ac130004"),
             nodegroup_id=uuid.UUID("8f3f9562-9dc5-11ed-a2fb-0242ac130004"),
-            value={"op": "eq","value": ["f75bb034-36e3-4ab4-8167-f520cf0b4c58"]},
+            value={"op": "eq", "value": ["f75bb034-36e3-4ab4-8167-f520cf0b4c58"]},
             name="Allow access to resources with active state",
         )
 
         resource_life_cycle_config.groups.set((resource_reviewers,))
 
+        resource_spatial_config = RuleConfig.objects.create(
+            id=uuid.UUID("7ac3ccec-3321-4dc8-89f5-99894b5c5d65"),
+            type="filter_tile_spatial",
+            node_id=uuid.UUID("8d30d2a4-9dc5-11ed-a2fb-0242ac130004"),
+            nodegroup_id=uuid.UUID("8d30d2a4-9dc5-11ed-a2fb-0242ac130004"),
+            value={
+                "op": "intersect",
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-122.7210418, 39.4537576],
+                            [-122.6880746, 38.7803836],
+                            [-121.1935648, 38.7032621],
+                            [-121.3034552, 39.5639487],
+                            [-122.7248331, 39.4534594],
+                            [-122.7210418, 39.4537576],
+                        ]
+                    ],
+                },
+            },
+            name="Filter all tiles that have geographic intersection with specified polygon",
+        )
+
+        resource_spatial_config.groups.set((resource_reviewers,))
+
     def remove_rule_config(apps, schema_editor):
         RuleConfig = apps.get_model("rule_based_perms", "RuleConfig")
-        RuleConfig.objects.get(id=uuid.UUID("baca30f6-96f6-4191-9fa1-f65cb0e3808d")).delete()
-        RuleConfig.objects.get(id=uuid.UUID("5888b10c-429a-44e9-8297-e507c3e1085c")).delete()
+        RuleConfig.objects.get(
+            id=uuid.UUID("baca30f6-96f6-4191-9fa1-f65cb0e3808d")
+        ).delete()
+        RuleConfig.objects.get(
+            id=uuid.UUID("7ac3ccec-3321-4dc8-89f5-99894b5c5d65")
+        ).delete()
+        RuleConfig.objects.get(
+            id=uuid.UUID("5888b10c-429a-44e9-8297-e507c3e1085c")
+        ).delete()
 
     operations = [
         migrations.RunPython(add_rule_config, remove_rule_config),
