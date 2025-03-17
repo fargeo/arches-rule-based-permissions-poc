@@ -1,6 +1,6 @@
 from arches.app.datatypes.datatypes import DataTypeFactory
 from arches.app.models import models
-from arches.app.search.elasticsearch_dsl_builder import Bool, Nested
+from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, Terms
 from django.contrib.auth.models import User, Group
 from django.db.models import Exists, OuterRef, Q
 from django.db.models.fields.json import KT
@@ -46,6 +46,16 @@ class PermissionRules:
     def filter_tile_does_not_have_value(self, filter="db", actions=[], qs=None):
         pass
 
+
+    def filter_resource_has_lifecycle_state(self, nodegroupid, nodeid, value, user, filter="db", qs=None):
+        if filter == "db":
+            return models.ResourceInstance.objects.filter(resource_instance_lifecycle_state="f75bb034-36e3-4ab4-8167-f520cf0b4c58")
+        else:
+            term_query = Terms(field="resource_instance_lifecycle_state_id", terms=["f75bb034-36e3-4ab4-8167-f520cf0b4c58"])
+            result = Bool()
+            result.must(term_query)
+            return result
+
     def get_config_groups(self, user: User) -> QuerySet[Group]: 
         unique_user_groups = set()
         for rule_config in self.configs:
@@ -58,6 +68,7 @@ class PermissionRules:
         filters = {
             "filter_tile_has_value": self.filter_tile_has_value,
             "filter_tile_does_not_have_value": self.filter_tile_does_not_have_value,
+            "filter_resource_has_lifecycle_state": self.filter_resource_has_lifecycle_state,
         }
 
         user_groups = self.get_config_groups(user)
