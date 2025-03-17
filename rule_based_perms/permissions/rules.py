@@ -1,3 +1,4 @@
+import json
 from arches.app.datatypes.datatypes import DataTypeFactory
 from arches.app.models import models
 from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, Terms
@@ -49,9 +50,9 @@ class PermissionRules:
 
     def filter_resource_has_lifecycle_state(self, nodegroupid, nodeid, value, user, filter="db", qs=None):
         if filter == "db":
-            return models.ResourceInstance.objects.filter(resource_instance_lifecycle_state="f75bb034-36e3-4ab4-8167-f520cf0b4c58")
+            return models.ResourceInstance.objects.filter(resource_instance_lifecycle_state__in=value)
         else:
-            term_query = Terms(field="resource_instance_lifecycle_state_id", terms=["f75bb034-36e3-4ab4-8167-f520cf0b4c58"])
+            term_query = Terms(field="resource_instance_lifecycle_state_id", terms=value)
             result = Bool()
             result.must(term_query)
             return result
