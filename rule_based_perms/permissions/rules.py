@@ -1,12 +1,15 @@
 from arches.app.datatypes.datatypes import DataTypeFactory
 from arches.app.models import models
-from arches.app.search.elasticsearch_dsl_builder import Bool, Nested
+from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, GeoShape
 from django.contrib.auth.models import User, Group
 from django.db.models import Exists, OuterRef, Q
 from django.db.models.fields.json import KT
 from django.db.models.query import QuerySet
 from django.http import HttpRequest
+
 from rule_based_perms.models import RuleConfig
+from django.contrib.gis.geos import GEOSGeometry
+import json
 
 
 class PermissionRules:
@@ -46,7 +49,28 @@ class PermissionRules:
     def filter_tile_does_not_have_value(self, filter="db", actions=[], qs=None):
         pass
 
-    def get_config_groups(self, user: User) -> QuerySet[Group]: 
+    def filter_tile_spatial(
+        self, nodegroupid, nodeid, value, user, filter="db", qs=None
+    ):
+        search_query = Bool()
+        value_dict = json.loads(value)
+        if filter == "db":
+            geom = GEOSGeometry(value, srid=4326)
+            return models.ResourceInstance.objects.filter(
+                geojsongeometry__geom__intersects=geom
+            )
+        else:
+            spatial_query = Bool()
+            geoshape = GeoShape(
+                field="geometries.geom.features.geometry",
+                type=value_dict["type"],
+                coordinates=value_dict["coordinates"],
+            )
+            spatial_query.filter(geoshape)
+            search_query.filter(Nested(path="geometries", query=spatial_query))
+            return search_query
+
+    def get_config_groups(self, user: User) -> QuerySet[Group]:
         unique_user_groups = set()
         for rule_config in self.configs:
             groups = rule_config.groups.all().values_list("name", flat=True)
@@ -58,6 +82,7 @@ class PermissionRules:
         filters = {
             "filter_tile_has_value": self.filter_tile_has_value,
             "filter_tile_does_not_have_value": self.filter_tile_does_not_have_value,
+            "filter_tile_spatial": self.filter_tile_spatial,
         }
 
         user_groups = self.get_config_groups(user)
@@ -67,9 +92,11 @@ class PermissionRules:
             queries = []
             final_query = Bool()
             for rule_config in self.configs:
-                if (rule_config.groups.all() & user_groups.all()).exists() and set(
-                    rule_config.actions
-                ).intersection(actions):
+                if (
+                    rule_config.active
+                    and (rule_config.groups.all() & user_groups.all()).exists()
+                    and set(rule_config.actions).intersection(actions)
+                ):
                     res = filters[rule_config.type](
                         rule_config.nodegroup_id,
                         rule_config.node_id,
