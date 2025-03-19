@@ -60,6 +60,7 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
         filters = {
             "filter_tile_has_value": self.rules.filter_tile_has_value,
             "filter_tile_does_not_have_value": self.rules.filter_tile_does_not_have_value,
+            "filter_resource_has_lifecycle_state": self.rules.filter_resource_has_lifecycle_state,
         }
         user_groups = self.rules.get_config_groups(user_or_group)
         actions = set()
