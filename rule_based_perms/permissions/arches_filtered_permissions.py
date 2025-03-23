@@ -69,9 +69,7 @@ class ArchesFilteredPermissionFramework(ArchesDefaultDenyPermissionFramework):
             for rule_config in self.rules.configs:
                 if (rule_config.groups.all() & user_groups.all()).exists():
                     resources = filters[rule_config.type](
-                        rule_config.nodegroup_id,
-                        rule_config.node_id,
-                        rule_config.value["value"],
+                        rule_config,
                         user_or_group,
                         "db",
                     )

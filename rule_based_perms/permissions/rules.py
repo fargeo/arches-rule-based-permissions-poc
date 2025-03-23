@@ -2,6 +2,8 @@ import json
 from arches.app.datatypes.datatypes import DataTypeFactory
 from arches.app.models import models
 from arches.app.search.elasticsearch_dsl_builder import Bool, Nested, Terms, GeoShape
+from arches.app.search.mappings import RESOURCES_INDEX
+from arches.app.search.search_engine_factory import SearchEngineFactory
 from django.contrib.auth.models import User, Group
 from django.db.models import Exists, OuterRef, Q
 from django.db.models.fields.json import KT
@@ -10,6 +12,7 @@ from django.http import HttpRequest
 
 from rule_based_perms.models import RuleConfig
 from django.contrib.gis.geos import GEOSGeometry
+from django.contrib.gis.db.models.functions import AsGeoJSON, Transform
 import json
 
 
@@ -19,17 +22,20 @@ class PermissionRules:
         self.configs = RuleConfig.objects.all()
 
     def filter_tile_has_value(
-        self, nodegroupid, nodeid, value, user, filter="db", qs=None
+        self, rule_config: RuleConfig, user, filter="db", qs=None
     ):
+        node_id = rule_config.node.nodeid
+        nodegroup_id = rule_config.nodegroup.nodegroupid
+        value = rule_config.value["value"]
         if filter == "db":
-            nodegroups = [nodegroupid]
+            nodegroups = [nodegroup_id]
             tiles = (
                 models.TileModel.objects.filter(
                     resourceinstance=OuterRef("resourceinstanceid"),
                     nodegroup_id__in=nodegroups,
                 )
                 .annotate(
-                    node=KT(f"data__{nodeid}"),
+                    node=KT(f"data__{node_id}"),
                 )
                 .filter(Q(node=value))
             )
@@ -41,7 +47,7 @@ class PermissionRules:
             string_factory = DataTypeFactory().get_instance("concept")
             val = {"op": "~", "val": value, "lang": "en"}
             string_factory.append_search_filters(
-                val, models.Node.objects.get(nodeid=nodeid), documents, HttpRequest()
+                val, models.Node.objects.get(nodeid=node_id), documents, HttpRequest()
             )
             result = Bool()
             result.must(Nested(path="tiles", query=documents))
@@ -65,26 +71,60 @@ class PermissionRules:
             result.must(term_query)
             return result
 
-    def filter_tile_spatial(
-        self, nodegroupid, nodeid, value, user, filter="db", qs=None
-    ):
+    def filter_tile_spatial(self, rule_config, user, filter="db", qs=None):
+
+        resource_instance_id = (
+            rule_config.value["resource_instance_id"]
+            if "resource_instance_id" in rule_config.value
+            else None
+        )
+        value = rule_config.value["geojson"]
+        op = rule_config.value["op"]
+
         search_query = Bool()
-        value_dict = json.loads(value)
         if filter == "db":
-            geom = GEOSGeometry(value, srid=4326)
-            return models.ResourceInstance.objects.filter(
-                geojsongeometry__geom__intersects=geom
-            )
+            if resource_instance_id:
+                return models.ResourceInstance.objects.filter(
+                    geojsongeometry__geom__intersects=models.GeoJSONGeometry.objects.filter(
+                        resourceinstance_id=resource_instance_id
+                    ).values(
+                        "geom"
+                    )
+                )
+            else:
+                geom = GEOSGeometry(json.dumps(value), srid=4326)
+                return models.ResourceInstance.objects.filter(
+                    geojsongeometry__geom__intersects=geom
+                )
         else:
-            spatial_query = Bool()
-            geoshape = GeoShape(
-                field="geometries.geom.features.geometry",
-                type=value_dict["type"],
-                coordinates=value_dict["coordinates"],
-            )
-            spatial_query.filter(geoshape)
-            search_query.filter(Nested(path="geometries", query=spatial_query))
-            return search_query
+            if resource_instance_id:
+                geojson_object = json.loads(
+                    models.GeoJSONGeometry.objects.annotate(
+                        json=AsGeoJSON(Transform("geom", 4326))
+                    )
+                    .get(resourceinstance_id=resource_instance_id)
+                    .json
+                )
+                spatial_query = Bool()
+
+                geoshape = GeoShape(
+                    field="geometries.geom.features.geometry",
+                    type=geojson_object["type"],
+                    coordinates=geojson_object["coordinates"],
+                )
+                spatial_query.filter(geoshape)
+                search_query.filter(Nested(path="geometries", query=spatial_query))
+                return search_query
+            else:
+                spatial_query = Bool()
+                geoshape = GeoShape(
+                    field="geometries.geom.features.geometry",
+                    type=value["type"],
+                    coordinates=value["coordinates"],
+                )
+                spatial_query.filter(geoshape)
+                search_query.filter(Nested(path="geometries", query=spatial_query))
+                return search_query
 
     def get_config_groups(self, user: User) -> QuerySet[Group]:
         unique_user_groups = set()
@@ -115,9 +155,7 @@ class PermissionRules:
                     and set(rule_config.actions).intersection(actions)
                 ):
                     res = filters[rule_config.type](
-                        rule_config.nodegroup_id,
-                        rule_config.node_id,
-                        rule_config.value["value"],
+                        rule_config,
                         user,
                         filter,
                     )
