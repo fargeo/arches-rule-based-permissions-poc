@@ -57,8 +57,9 @@ class PermissionRules:
         pass
 
     def filter_resource_has_lifecycle_state(
-        self, nodegroupid, nodeid, value, user, filter="db", qs=None
+        self, rule_config: RuleConfig, user, filter="db", qs=None
     ):
+        value = rule_config.value["value"]
         if filter == "db":
             return models.ResourceInstance.objects.filter(
                 resource_instance_lifecycle_state__in=value
