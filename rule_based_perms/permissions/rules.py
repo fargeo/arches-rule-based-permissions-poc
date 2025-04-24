@@ -149,7 +149,7 @@ class PermissionRules:
         if len(user_groups):
             queries = []
             final_query = Bool()
-            queries = 0
+            number_of_queries = 0
             for rule_config in self.configs:
                 if (
                     rule_config.active
@@ -165,7 +165,7 @@ class PermissionRules:
                         queries.append(res)
                     else:
                         final_query.should(res)
-                        queries += 1
+                        number_of_queries += 1
         else:
             return models.ResourceInstance.objects.none()
 
