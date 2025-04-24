@@ -172,7 +172,7 @@ class PermissionRules:
         if filter == "db":
             return queries[0].union(*queries[1:]) if len(queries) > 1 else queries[0]
         else:
-            if queries:
+            if number_of_queries:
                 return final_query
             else:
                 return None
